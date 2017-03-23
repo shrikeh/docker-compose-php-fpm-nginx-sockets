@@ -1,0 +1,66 @@
+---
+version: '3'
+
+services:
+  php_fpm:
+    build:
+      context: php-fpm
+    volumes:
+      - sock:/sock
+      - app:/www/app:ro
+      - vendor:/www/vendor:ro
+      - src:/www/src:ro
+    networks:
+      - backend-php
+  nginx_backend:
+    build:
+      context: nginx-backend
+    expose:
+      - 80
+    environment:
+      - APP_UID=3000
+      - APP_GID=3000
+      - CHOWN_APP_DIR=false
+      - SSL_ENABLED=false
+    volumes:
+      - app:/www/app:ro
+      - sock:/sock
+    networks:
+      - backend-php
+      - backend-varnish
+  varnish:
+    environment:
+      - VCL_CONFIG=/varnish/varnish.vcl
+      - VARNISHD_PARAMS=-a :6081 -p default_ttl=3600 -p default_grace=3600
+    ports:
+      - 80:6081
+    depends_on:
+      - nginx_backend
+    build:
+      context: varnish
+    networks:
+      - backend-varnish
+
+volumes:
+  sock:
+    driver: local
+  app:
+    driver_opts:
+      type: none
+      device: ../../app
+      o: bind
+  vendor:
+    driver_opts:
+      type: none
+      device: ../../vendor
+      o: bind
+  src:
+    driver_opts:
+      type: none
+      device: ../../src
+      o: bind
+
+networks:
+  backend-php:
+  backend-varnish:
+...
